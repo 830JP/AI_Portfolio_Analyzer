@@ -15,10 +15,7 @@ st.set_page_config(
 )
 
 
-st.title(
-    "🤖 AI Portfolio Analyzer"
-)
-
+st.title("🤖 AI Portfolio Analyzer")
 
 
 # ==========================
@@ -33,81 +30,42 @@ portfolio_tab, yahoo_tab = st.tabs(
 )
 
 
-
 # ==========================
-# PORTFOLIO TAB
+# SESSION STORAGE
+# ==========================
+
+if "clean_data" not in st.session_state:
+    st.session_state.clean_data = None
+
+
+if "raw_data" not in st.session_state:
+    st.session_state.raw_data = None
+# PART 2 - EXCEL UPLOAD + AI HEADER SCANNER
 # ==========================
 
 with portfolio_tab:
 
-
-    st.header(
-        "Portfolio Analyzer"
-    )
-
-
-    st.write(
-        "Upload a portfolio spreadsheet to begin."
-    )
-
-
-
-# ==========================
-# YAHOO FINANCE TAB
-# ==========================
-
-with yahoo_tab:
-
-
-    st.header(
-        "Yahoo Finance Analyzer"
-    )
-
-
-    st.write(
-        "Stock research tools will appear here."
-    )# ==========================
-# PART 2 - EXCEL UPLOAD + AI SCANNER
-# ==========================
-
-
-if "portfolio_data" not in st.session_state:
-
-    st.session_state.portfolio_data = None
-
-
-
-with portfolio_tab:
-
+    st.header("📊 Portfolio Analyzer")
 
     uploaded_file = st.file_uploader(
-
         "Upload Portfolio Excel",
-
         type=["xlsx"]
-
     )
-
 
 
     if uploaded_file:
 
+        df = pd.read_excel(uploaded_file)
 
-        df = pd.read_excel(
 
-            uploaded_file
-
-        )
-
+        st.session_state.raw_data = df
 
 
         # ==========================
-        # AI HEADER MAP
+        # AI HEADER ALIASES
         # ==========================
-
 
         header_aliases = {
-
 
             "client": [
                 "client",
@@ -118,7 +76,6 @@ with portfolio_tab:
                 "name"
             ],
 
-
             "stock": [
                 "stock",
                 "ticker",
@@ -127,24 +84,19 @@ with portfolio_tab:
                 "security"
             ],
 
-
             "buy_date": [
                 "buy date",
                 "purchase date",
                 "entry date",
-                "open date",
-                "opened"
+                "open date"
             ],
-
 
             "sell_date": [
                 "sell date",
                 "sale date",
                 "exit date",
-                "close date",
-                "closed"
+                "close date"
             ],
-
 
             "shares": [
                 "shares",
@@ -153,7 +105,6 @@ with portfolio_tab:
                 "units"
             ],
 
-
             "buy_price": [
                 "buy price",
                 "purchase price",
@@ -161,13 +112,11 @@ with portfolio_tab:
                 "cost"
             ],
 
-
             "sell_price": [
                 "sell price",
                 "sale price",
                 "exit price"
             ],
-
 
             "profit": [
                 "profit",
@@ -181,75 +130,52 @@ with portfolio_tab:
 
 
 
+        def find_column(columns, options):
 
-        def find_column(columns, choices):
+            for col in columns:
 
-
-            for column in columns:
-
-
-                column_name = (
-
-                    str(column)
+                clean_col = (
+                    str(col)
                     .lower()
                     .strip()
-
                 )
 
+                for option in options:
 
-                for choice in choices:
+                    if option in clean_col:
 
-
-                    if choice in column_name:
-
-
-                        return column
-
-
+                        return col
 
             return None
-
 
 
 
         detected = {}
 
 
-
-        for key, choices in header_aliases.items():
-
+        for key, options in header_aliases.items():
 
             detected[key] = find_column(
-
                 df.columns,
-
-                choices
-
+                options
             )
-
 
 
         st.session_state.detected = detected
 
-        st.session_state.raw_data = df
-
 
         st.success(
-
-            "Portfolio loaded successfully"
-
+            "✅ Portfolio detected and scanned"
         )# ==========================
 # PART 3 - CLEAN DATA ENGINE
 # ==========================
 
-
-if "raw_data" in st.session_state:
+if st.session_state.raw_data is not None:
 
 
     df = st.session_state.raw_data
 
     detected = st.session_state.detected
-
 
 
     clean = pd.DataFrame()
@@ -260,24 +186,19 @@ if "raw_data" in st.session_state:
     # CREATE STANDARD COLUMNS
     # ==========================
 
-
     for new_name, old_name in detected.items():
 
-
         if old_name is not None:
-
 
             clean[new_name] = df[old_name]
 
 
 
     # ==========================
-    # CLEAN STOCKS
+    # CLEAN STOCK NAMES
     # ==========================
 
-
     if "stock" in clean.columns:
-
 
         clean["stock"] = (
 
@@ -294,7 +215,6 @@ if "raw_data" in st.session_state:
     # CLEAN NUMBERS
     # ==========================
 
-
     number_columns = [
 
         "shares",
@@ -305,34 +225,25 @@ if "raw_data" in st.session_state:
     ]
 
 
-
-    for column in number_columns:
-
-
-        if column in clean.columns:
+    for col in number_columns:
 
 
-            clean[column] = (
+        if col in clean.columns:
 
-                clean[column]
+
+            clean[col] = (
+
+                clean[col]
                 .astype(str)
-                .str.replace(
-                    "$",
-                    "",
-                    regex=False
-                )
-                .str.replace(
-                    ",",
-                    "",
-                    regex=False
-                )
+                .str.replace("$","", regex=False)
+                .str.replace(",","", regex=False)
 
             )
 
 
-            clean[column] = pd.to_numeric(
+            clean[col] = pd.to_numeric(
 
-                clean[column],
+                clean[col],
 
                 errors="coerce"
 
@@ -341,9 +252,8 @@ if "raw_data" in st.session_state:
 
 
     # ==========================
-    # CALCULATE PROFIT
+    # CALCULATE PROFIT IF MISSING
     # ==========================
-
 
     if (
 
@@ -385,9 +295,8 @@ if "raw_data" in st.session_state:
 
 
     # ==========================
-    # RETURNS
+    # RETURN %
     # ==========================
-
 
     if (
 
@@ -432,11 +341,10 @@ if "raw_data" in st.session_state:
 
 
     # ==========================
-    # DATE CLEANING
+    # CLEAN DATES
     # ==========================
 
-
-    for date_column in [
+    for col in [
 
         "buy_date",
         "sell_date"
@@ -444,12 +352,12 @@ if "raw_data" in st.session_state:
     ]:
 
 
-        if date_column in clean.columns:
+        if col in clean.columns:
 
 
-            clean[date_column] = pd.to_datetime(
+            clean[col] = pd.to_datetime(
 
-                clean[date_column],
+                clean[col],
 
                 errors="coerce"
 
@@ -458,24 +366,23 @@ if "raw_data" in st.session_state:
 
 
     st.session_state.clean_data = clean# ==========================
-# PART 4 - PORTFOLIO ANALYZER
+# PART 4 - PORTFOLIO DASHBOARD
 # ==========================
 
-
-if "clean_data" in st.session_state:
+if st.session_state.clean_data is not None:
 
 
     with portfolio_tab:
 
 
-        clean = st.session_state.clean_data
+        clean = st.session_state.clean_data.copy()
 
 
         st.divider()
 
 
         st.header(
-            "Portfolio Performance"
+            "📈 Portfolio Performance"
         )
 
 
@@ -484,27 +391,23 @@ if "clean_data" in st.session_state:
 
 
         # ==========================
-        # CLIENT SELECTOR
+        # CLIENT FILTER
         # ==========================
-
 
         if "client" in filtered.columns:
 
 
-            clients = (
+            clients = [
 
-                ["All"]
+                "All"
 
-                +
+            ] + sorted(
 
-                sorted(
-
-                    filtered["client"]
-                    .dropna()
-                    .astype(str)
-                    .unique()
-
-                )
+                filtered["client"]
+                .dropna()
+                .astype(str)
+                .unique()
+                .tolist()
 
             )
 
@@ -518,9 +421,7 @@ if "clean_data" in st.session_state:
             )
 
 
-
             if selected_client != "All":
-
 
                 filtered = filtered[
 
@@ -535,26 +436,23 @@ if "clean_data" in st.session_state:
 
 
         # ==========================
-        # STOCK SELECTOR
+        # STOCK FILTER
         # ==========================
-
 
         if "stock" in filtered.columns:
 
 
-            stocks = (
+            stocks = [
 
-                ["All"]
+                "All"
 
-                +
+            ] + sorted(
 
-                sorted(
-
-                    filtered["stock"]
-                    .dropna()
-                    .unique()
-
-                )
+                filtered["stock"]
+                .dropna()
+                .astype(str)
+                .unique()
+                .tolist()
 
             )
 
@@ -566,7 +464,6 @@ if "clean_data" in st.session_state:
                 stocks
 
             )
-
 
 
             if selected_stock != "All":
@@ -588,28 +485,20 @@ if "clean_data" in st.session_state:
         # METRICS
         # ==========================
 
-
         total_profit = filtered["profit"].sum()
 
 
         total_trades = len(filtered)
 
 
-
         winners = (
 
-            filtered["profit"]
-
-            >
-
-            0
+            filtered["profit"] > 0
 
         ).sum()
 
 
-
         if total_trades > 0:
-
 
             win_rate = (
 
@@ -631,21 +520,19 @@ if "clean_data" in st.session_state:
 
 
 
-        avg_return = (
+        avg_return = filtered[
 
-            filtered["return_percent"]
+            "return_percent"
 
-            .mean()
-
-        )
+        ].mean()
 
 
 
-        c1,c2,c3,c4 = st.columns(4)
+        col1,col2,col3,col4 = st.columns(4)
 
 
 
-        c1.metric(
+        col1.metric(
 
             "Total Profit",
 
@@ -654,7 +541,7 @@ if "clean_data" in st.session_state:
         )
 
 
-        c2.metric(
+        col2.metric(
 
             "Trades",
 
@@ -663,7 +550,7 @@ if "clean_data" in st.session_state:
         )
 
 
-        c3.metric(
+        col3.metric(
 
             "Win Rate",
 
@@ -672,11 +559,11 @@ if "clean_data" in st.session_state:
         )
 
 
-        c4.metric(
+        col4.metric(
 
             "Average Return",
 
-            f"{avg_return:.1f}%"
+            f"{avg_return:.2f}%"
 
         )
 
@@ -686,77 +573,65 @@ if "clean_data" in st.session_state:
         # LINE GRAPH
         # ==========================
 
-
         if "sell_date" in filtered.columns:
 
 
-            graph = (
+            graph = filtered.dropna(
 
-                filtered
+                subset=["sell_date"]
 
-                .dropna(
-                    subset=["sell_date"]
+            ).sort_values(
+
+                "sell_date"
+
+            )
+
+
+            if len(graph) > 0:
+
+
+                graph["portfolio_growth"] = (
+
+                    graph["profit"]
+
+                    .cumsum()
+
                 )
 
-                .sort_values(
-                    "sell_date"
+
+                st.subheader(
+
+                    "📈 Portfolio Growth"
+
                 )
 
-            )
+
+                fig = px.line(
+
+                    graph,
+
+                    x="sell_date",
+
+                    y="portfolio_growth",
+
+                    markers=True
+
+                )
 
 
+                st.plotly_chart(
 
-            graph["portfolio_growth"] = (
+                    fig,
 
-                graph["profit"]
+                    use_container_width=True
 
-                .cumsum()
+                )
 
-            )
-
-
-
-            st.subheader(
-
-                "📈 Portfolio Growth"
-
-            )
-
-
-
-            fig = px.line(
-
-                graph,
-
-                x="sell_date",
-
-                y="portfolio_growth",
-
-                markers=True
-
-            )
-            st.plotly_chart(
-                
-
-            fig,
-
-            use_container_width=True
-
-        )
 
 
         # ==========================
-        # EXPORT GRAPH BUTTON
+        # TRADE TABLE
         # ==========================
-
-        st.plotly_chart(
-
-    fig,
-
-    use_container_width=True
-
-)
-
 
         st.subheader(
 
@@ -775,7 +650,6 @@ if "clean_data" in st.session_state:
 # PART 5 - YAHOO FINANCE TAB
 # ==========================
 
-
 with yahoo_tab:
 
 
@@ -784,14 +658,13 @@ with yahoo_tab:
     )
 
 
-    ticker = st.text_input(
+    ticker_input = st.text_input(
 
         "Enter Stock Ticker",
 
         "AAPL"
 
     )
-
 
 
     timeframe = st.selectbox(
@@ -801,11 +674,17 @@ with yahoo_tab:
         [
 
             "1 Month",
+
             "3 Months",
+
             "6 Months",
+
             "1 Year",
+
             "5 Years",
+
             "10 Years",
+
             "All Time"
 
         ]
@@ -816,30 +695,36 @@ with yahoo_tab:
 
     period_map = {
 
+        "1 Month": "1mo",
 
-        "1 Month":"1mo",
+        "3 Months": "3mo",
 
-        "3 Months":"3mo",
+        "6 Months": "6mo",
 
-        "6 Months":"6mo",
+        "1 Year": "1y",
 
-        "1 Year":"1y",
+        "5 Years": "5y",
 
-        "5 Years":"5y",
+        "10 Years": "10y",
 
-        "10 Years":"10y",
-
-        "All Time":"max"
+        "All Time": "max"
 
     }
 
 
 
-    if ticker:
+    if ticker_input:
 
 
-        ticker = ticker.upper().strip()
+        ticker = (
 
+            ticker_input
+
+            .upper()
+
+            .strip()
+
+        )
 
 
         try:
@@ -860,7 +745,6 @@ with yahoo_tab:
             # COMPANY INFO
             # ==========================
 
-
             st.subheader(
 
                 "🏢 Company Information"
@@ -868,11 +752,11 @@ with yahoo_tab:
             )
 
 
-            col1,col2 = st.columns(2)
+            c1,c2 = st.columns(2)
 
 
 
-            with col1:
+            with c1:
 
 
                 st.write(
@@ -921,7 +805,7 @@ with yahoo_tab:
 
 
 
-            with col2:
+            with c2:
 
 
                 st.write(
@@ -959,7 +843,6 @@ with yahoo_tab:
             # MARKET DATA
             # ==========================
 
-
             st.subheader(
 
                 "📊 Market Statistics"
@@ -968,7 +851,6 @@ with yahoo_tab:
 
 
             a,b,c,d = st.columns(4)
-
 
 
             a.metric(
@@ -1033,9 +915,8 @@ with yahoo_tab:
 
 
             # ==========================
-            # STOCK CHART
+            # PRICE GRAPH
             # ==========================
-
 
             history = stock.history(
 
@@ -1055,7 +936,6 @@ with yahoo_tab:
                 )
 
 
-
                 chart = px.line(
 
                     history,
@@ -1069,7 +949,6 @@ with yahoo_tab:
                 )
 
 
-
                 st.plotly_chart(
 
                     chart,
@@ -1079,20 +958,26 @@ with yahoo_tab:
                 )
 
 
+                start_price = history["Close"].iloc[0]
 
-                start = history["Close"].iloc[0]
-
-                end = history["Close"].iloc[-1]
-
+                end_price = history["Close"].iloc[-1]
 
 
-                performance = (
+                change = (
 
-                    (end-start)
+                    (
+
+                        end_price
+
+                        -
+
+                        start_price
+
+                    )
 
                     /
 
-                    start
+                    start_price
 
                     *
 
@@ -1101,13 +986,11 @@ with yahoo_tab:
                 )
 
 
-
                 st.info(
 
-                    f"{ticker} performance over selected period: {performance:.2f}%"
+                    f"{ticker} performance: {change:.2f}%"
 
                 )
-
 
 
         except:
