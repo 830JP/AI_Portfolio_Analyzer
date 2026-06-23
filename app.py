@@ -749,24 +749,13 @@ if "clean_data" in st.session_state:
         # EXPORT GRAPH BUTTON
         # ==========================
 
-        img_bytes = fig.to_image(
+        st.plotly_chart(
 
-            format="png"
+    fig,
 
-        )
+    use_container_width=True
 
-
-        st.download_button(
-
-            label="📥 Download Portfolio Graph",
-
-            data=img_bytes,
-
-            file_name="portfolio_growth.png",
-
-            mime="image/png"
-
-        )
+)
 
 
         st.subheader(
